@@ -1,0 +1,33 @@
+description "Eon AST Parser and Semantic Compiler\377";
+
+uses
+	Core,
+	Vfs/Core,
+	Esc;
+
+file
+	Compiler.h,
+	Compiler.icpp,
+	Vfs.h,
+	Defs.h,
+	Node.h,
+	Node.cpp,
+	Util.h,
+	Util.cpp,
+	Ast.h,
+	Ast.cpp,
+	AstBuilder.cpp,
+	EonStd.h,
+	EonStd.cpp,
+	Exporter.h,
+	Exporter.cpp,
+	TokenStructure.h,
+	TokenStructure.cpp,
+	SemanticParser.h,
+	SemanticParser.cpp,
+	AstRunner.h,
+	AstRunner.cpp,
+	AstExporter.h,
+	AstExporter.cpp,
+	CompilerClass.h,
+	Compiler.cpp;

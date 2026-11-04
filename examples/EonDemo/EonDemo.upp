@@ -1,0 +1,12 @@
+description "Automated headless Eon packet router demo\377B128,0,0";
+
+uses
+	Core,
+	Ecs,
+	Eon/Core;
+
+file
+	main.cpp;
+
+mainconfig
+	"" = "";

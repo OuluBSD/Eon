@@ -1,0 +1,56 @@
+description "Vfs ECS runtime\377B128,0,0";
+
+acceptflags
+	DEBUG_RT;
+
+uses
+	Core,
+	Core/Ext,
+	Core/EcsFoundation,
+	Core/EcsEngine,
+	Core/EcsDataflow,
+	Core/MediaFormats,
+	Vfs/Core;
+
+file
+	AGENTS.md,
+	Ecs.h,
+	Atom.h,
+	Atom.cpp,
+	Component.h,
+	Component.cpp,
+	Debugging.h,
+	Debugging.cpp,
+	Engine.h,
+	Engine.cpp,
+	Engine2.h,
+	Engine2.cpp,
+	Engine3.cpp,
+	Entity.h,
+	Entity.cpp,
+	Entity2.cpp,
+	Exchange.h,
+	Exchange.cpp,
+	Interface.h,
+	Interface.cpp,
+	Link.h,
+	Link.cpp,
+	LinkFwd.cpp,
+	LinkSystem.h,
+	LinkSystem.cpp,
+	PacketBuffer.h,
+	PacketBuffer.cpp,
+	PacketTracker.h,
+	PacketTracker.cpp,
+	Realtime.h,
+	Realtime.cpp,
+	SampleBase.h,
+	SampleBase.cpp,
+	Samples.h,
+	Samples.cpp,
+	Formats.h,
+	Formats.cpp,
+	ValDevScope.h,
+	ValDevScope.cpp,
+	_ readonly separator;
+

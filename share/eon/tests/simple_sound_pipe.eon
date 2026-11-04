@@ -1,0 +1,33 @@
+machine sdl.app:
+	
+	driver context:
+		sdl.context
+	
+	chain program:
+		
+		loop audio_gen:
+			center.customer
+			center.audio.src.dbg_generator
+			center.audio.side.src.center.user[][loop == "audio_conv_in"]
+
+		loop audio_conv_in:
+			ogl.customer
+			ogl.center.fbo.audio[loop == "audio_gen"][loop == "audio_fx"]
+		
+		loop audio_fx:
+			ogl.customer
+			ogl.fbo.source[loop == "audio_conv_in"][loop == "audio_conv_out"]: type = "audio", filepath = "shaders/toys/simple/simple_sound_out/stage1.glsl"
+		
+		loop audio_conv_out:
+			ogl.customer
+			ogl.fbo.center.audio[loop == "audio_fx"][loop == "audio_out"]
+		
+		loop audio_out:
+			center.customer
+			center.audio.side.sink.center.user[loop == "audio_conv"]
+			sdl.audio
+		
+		loop screen:
+			ogl.customer
+			sdl.fbo.standalone:
+				filepath ="shaders/toys/simple/simple_sound_pipe/stage0.glsl"

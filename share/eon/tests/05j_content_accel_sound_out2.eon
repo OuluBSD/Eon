@@ -1,0 +1,27 @@
+machine sdl.app:
+	
+	driver context:
+		sdl.context
+		
+	chain program:
+		
+		loop audio_gen:
+			ogl.customer
+			sdl.ogl.fbo.side[][loop == "audio_conv"]:
+				type = "audio"
+				retarded.local.time = true
+				shader.frag.path = "shaders/toys/fm/synth_fm/stage1.glsl"
+				
+		loop screen:
+			ogl.customer
+			sdl.fbo.standalone:
+				shader.frag.path = "shaders/toys/fm/synth_fm/stage0.glsl"
+		
+		loop audio_conv:
+			ogl.customer
+			sdl.ogl.fbo.center.audio[loop == "audio_gen"][loop == "audio_out"]
+		
+		loop audio_out:
+			center.customer
+			center.audio.side.sink.center.user[loop == "audio_conv"]
+			sdl.audio

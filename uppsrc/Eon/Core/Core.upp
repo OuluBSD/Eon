@@ -1,0 +1,40 @@
+description "Eon/Core\377B85,42,0";
+
+acceptflags
+	DEBUG_RT,
+	SCREEN;
+
+uses
+	Vfs/Core,
+	Ecs;
+
+file
+	AGENTS.md,
+	README.md,
+	Core.h,
+	Core.icpp,
+	RouterNetContext.h,
+	Context.h,
+	Context.cpp,
+	Types.h,
+	Container.h,
+	Container.cpp,
+	Atom.h,
+	LinkUtil.h,
+	LinkUtil.cpp,
+	LinkBase.h,
+	LinkBase.cpp,
+	LinkFactory.h,
+	LinkFactory.cpp,
+	PacketRouter.h,
+	PacketRouter.cpp,
+	Base.h,
+	Base.cpp,
+	BaseAudio.h,
+	BaseAudio.cpp,
+	BaseVideo.h,
+	BaseVideo.cpp,
+	Network.h,
+	Network.cpp,
+	GenAtom.inl highlight cpp;
+

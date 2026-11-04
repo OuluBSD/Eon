@@ -1,0 +1,19 @@
+description "\377B85,42,0";
+
+acceptflags
+	OPENVR,
+	ASSIMP;
+
+uses
+	Eon/Core,
+	Eon/Compiler,
+	Eon/Script,
+	Eon/Ecs,
+	Eon/Interaction;
+
+uses(GUI !SDL2GL) Ctrl/Display;
+
+file
+	Eon.h,
+	AGENTS.md;
+

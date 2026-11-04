@@ -1,0 +1,786 @@
+#include "Lib.h"
+#include <api/Graphics/Graphics.h>
+
+
+#if defined flagGUI && defined flagVIRTUALGUI
+ #include <VirtualGui/Local.h>
+ #include <VirtualGui/Atom/Atom.h>
+#endif
+
+#ifdef flagGUBO
+ #include <GuboCore/GuboCore.h>
+#endif
+
+NAMESPACE_UPP
+
+
+
+HandleEventsBase::HandleEventsBase(VfsValue& n) : Atom(n) {
+	
+}
+
+bool HandleEventsBase::Initialize(const WorldState& ws) {
+	
+	target = ws.Get(".target");
+	if (target.IsEmpty()) {
+		LOG("HandleEventsBase::Initialize: error: target state argument is required");
+		return false;
+	}
+	
+	if(!val.owner) return false;
+	VfsValue& space = *val.owner;
+	String normalized_target = target;
+	if (normalized_target.Find('/') < 0 && normalized_target.Find('.') >= 0) {
+		Vector<String> parts = Split(normalized_target, ".");
+		bool valid = !parts.IsEmpty();
+		for (const String& part : parts)
+			if (part.IsEmpty())
+				valid = false;
+		if (valid)
+			normalized_target = Join(parts, "/");
+	}
+	state = space.FindOwnerWithPathAndCast<EnvState>(normalized_target);
+	if (!state && normalized_target != target)
+		state = space.FindOwnerWithPathAndCast<EnvState>(target);
+	if (!state) {
+		LOG("HandleEventsBase::Initialize: error: state '" << target << "' not found in parent space: " << space.GetPath());
+		return false;
+	}
+	
+	#if 0
+	if (!WhenInitialize) {
+		LOG("HandleEventsBase::Initialize: internal error: expected ecs system to prepare this");
+		return false;
+	}
+	
+	WhenInitialize(this);
+	#endif
+	
+	return true;
+}
+
+bool HandleEventsBase::PostInitialize() {
+	return true;
+}
+
+void HandleEventsBase::Uninitialize() {
+	
+}
+
+bool HandleEventsBase::IsReady(PacketIO& io) {
+	if (!state) return false;
+	int keyboard_iter = state->GetInt(KEYBOARD_STATE_ITER);
+	dword iface_sink_mask = iface.GetSinkMask();
+	bool b =
+		io.active_sink_mask == iface_sink_mask &&
+		io.full_src_mask == 0 &&
+		keyboard_iter != prev_iter;
+	RTLOG("HandleEventsBase::IsReady: " << (b ? "true" : "false") << " (" << io.nonempty_sinks << ", " << io.sinks.GetCount() << ", " << HexStr(iface_sink_mask) << ", " << HexStr(io.active_sink_mask) << ")");
+	return b;
+}
+
+bool HandleEventsBase::Recv(int sink_ch, const Packet& in) {
+	return true;
+}
+
+void HandleEventsBase::Finalize(RealtimeSourceConfig& cfg) {
+	
+}
+
+bool HandleEventsBase::Send(RealtimeSourceConfig& cfg, PacketValue& out, int src_ch) {
+	return true;
+}
+
+
+
+
+
+
+
+#if defined flagSCREEN
+
+// PIMPL implementation to manage the Array<Binder> where complete type is known
+struct HandleVideoBase::HandleVideoBasePimpl {
+	Array<Binder> binders; // Now we can safely use Array<Binder> where Binder is complete
+};
+
+struct HandleVideoBase::Binder {
+	//RTTI_DECL0(Binder);
+	
+	BinderIfaceVideo* iface = 0;
+	//AbsoluteInterface* abs_iface = 0;
+	DrawCommandImageRenderer rend;
+	bool win_inited = false;
+	Size sz;
+	double resize_multiplier = 0.01;
+	ModelBuilder mb;
+	
+	void Visit(Vis& v) {
+		//vis & win3d;
+	}
+};
+
+
+
+HandleVideoBase::HandleVideoBase(VfsValue& n) : Atom(n) {
+	if (!active) {
+		active = this;
+	}
+	GetPimpl(); // Create the pimpl object that manages binders
+}
+
+HandleVideoBase::~HandleVideoBase() {
+	// Destructor defined here where complete types are known
+	// This ensures safe destruction of pimpl which contains Array<Binder>
+
+	#if defined flagGUI && defined flagSUBWINDOWS
+	if (gui_event_ctx_active) {
+		Ctrl::EventLoopEnd(gui_event_ctx);
+		gui_event_ctx_active = false;
+	}
+	#endif
+}
+
+bool HandleVideoBase::IsActive() const {
+	return active == this;
+}
+
+bool HandleVideoBase::Initialize(const WorldState& ws) {
+	ISourcePtr src = this->GetSource();
+	int src_count = src->GetSourceCount();
+	ValueBase& val = src->GetSourceValue(src_count-1);
+	src_type = val.GetFormat().vd;
+	
+	screen_id = ws.GetInt(".screen.id", -1);
+	draw_mem = ws.Get(".drawmem") == "true";
+	
+	add_ecs = ws.GetBool(".add.ecs", false);
+	if (GetSourceValue(0).GetFormat().IsReceipt())
+		add_ecs = true;
+	
+	#if defined flagGUI && defined flagSUBWINDOWS
+	wins = GetEngine().TryGet<WindowSystem>();
+	#endif
+	#if defined flagGUBO
+	surfs = GetEngine().TryGet<Gu::SurfaceSystem>();
+	#endif
+	
+	return true;
+}
+
+bool HandleVideoBase::PostInitialize() {
+	
+	// Remove alpha channel
+	if (src_type == VD(CENTER, VIDEO)) {
+		ISourcePtr src = this->GetSource();
+		int src_count = src->GetSourceCount();
+		LinkBase* link = GetLink();
+		int src_ch = link->SideSinks().GetCount() == 1 ? link->SideSources().First().local_ch_i : src_count-1;
+		ValueBase& val = src->GetSourceValue(src_ch);
+		ValueFormat fmt = val.GetFormat();
+		fmt.vid.SetType(ColorSampleFD::RGB_U8_LE);
+		if (!link->NegotiateSourceFormat(src_ch, fmt))
+			return false;
+	}
+	
+	if (active == this)
+		AddBinders();
+	
+	return true;
+}
+
+void HandleVideoBase::Stop() {
+	state = 0;
+	#if defined flagGUI && defined flagSUBWINDOWS
+	wins->Close();
+	#endif
+	#if defined flagGUBO
+	surfs = NULL;
+	#endif
+	if (IsActive())
+		GetPimpl().binders.Clear();
+}
+
+void HandleVideoBase::Uninitialize() {
+	if (IsActive()) {
+		GetPimpl().binders.Clear(); // Array<Binder> in pimpl will be cleared properly
+		active = 0;
+	}
+}
+
+void HandleVideoBase::Visit(Vis& v) {
+	VIS_THIS(Atom);
+	if (IsActive())
+		v | GetPimpl().binders;
+	v & state;
+	
+	#if defined flagGUI && defined flagSUBWINDOWS
+	v & wins;
+	#endif
+	#if defined flagGUBO
+	v & surfs;
+	#endif
+}
+
+bool HandleVideoBase::IsReady(PacketIO& io) {
+	dword iface_sink_mask = iface.GetSinkMask();
+	
+	bool render_win = false;
+	
+	if (0) {}
+	#if defined flagGUI && defined flagSUBWINDOWS
+	else if (wins && screen_id < wins->GetScreenCount()) {
+		render_win = true;
+	}
+	#endif
+	#if defined flagGUBO
+	else if (surfs && screen_id < surfs->GetScreenCount()) {
+		render_win = true;
+	}
+	#else
+	#endif
+	
+	bool b =	io.active_sink_mask == iface_sink_mask &&
+				io.full_src_mask == 0 &&
+				(GetPimpl().binders.GetCount() > 0 || render_win);
+	RTLOG("HandleVideoBase::IsReady: " << (b ? "true" : "false") << " (binders " << GetPimpl().binders.GetCount() << ", " << io.nonempty_sinks << ", " << io.sinks.GetCount() << ", " << HexStr(iface_sink_mask) << ", " << HexStr(io.active_sink_mask) << ")");
+	
+	return b;
+}
+
+#if 0
+void HandleVideoBase::RedrawScreen() {
+	/*#ifdef flagGUI
+	Size sz = VirtualGui3DPtr ? VirtualGui3DPtr->GetSize() : Size(800, 600);
+	#else
+	Size sz = Size(800, 600);
+	#endif
+	
+	if (pd.GetPageSize() != sz)
+		pd.Create(sz);*/
+	
+	bool render_win = false;
+	#if defined flagGUI && defined flagSUBWINDOWS
+	if (wins && screen_id < wins->GetScreenCount()) {
+		/*ASSERT(sz.cx > 0 && sz.cy > 0);
+		ProgPainter& pp = pd.GetPainter();
+		pp.Dump();*/
+		
+		WindowManager& w = wins->GetScope(screen_id);
+		
+		w.Render();
+		
+		render_win = w.IsRender();
+		
+		/*pd.cmd_screen_begin.Check();
+		
+		pp.Attach(w.GetCommandBegin(), w.GetCommandEnd()); // <-- attach window to this
+		
+		pd.cmd_screen_begin.Check();
+		
+		render_win = w.CheckRender(); // <--- render
+		
+		pd.cmd_screen_begin.Check();
+		
+		pp.Dump(); TODO
+		
+		render_win = true;*/
+		//LOG("HandleVideoBase::IsReady: prog:"); LOG(pd.Dump());
+	}
+	#else
+	if (0) {}
+	#endif
+	else if (surfs && screen_id < surfs->GetScreenCount()) {
+		auto& w = surfs->GetScope(screen_id);
+		
+		w.Render();
+		
+		render_win = w.IsRender();
+	}
+}
+#endif
+
+bool HandleVideoBase::Recv(int sink_ch, const Packet& in) {
+	
+	ValueFormat fmt = in->GetFormat();
+	if (fmt.IsOrder()) {
+		return true;
+	}
+	
+	TODO
+	
+	return false;
+}
+
+void HandleVideoBase::Finalize(RealtimeSourceConfig& cfg) {
+	/*if (IsScreenMode()) {
+		RedrawScreen();
+	}
+	else*/
+	if (IsActive()) {
+		
+		for (Binder& b : GetPimpl().binders) {
+			
+			#if defined flagGUI && defined flagSUBWINDOWS
+			if (wins) {
+				int scope_count = wins->GetScopeCount();
+				ASSERT(scope_count);
+				if (screen_id >= 0 && screen_id < scope_count) {
+					// TODO multi AtomVirtualGui support and update VirtualGuiPtr here
+					//      also, put Ctrl::desktop etc to own class and instance
+					ASSERT(scope_count == 1);
+
+					// Initialize context on first use
+					if (!gui_event_ctx_active) {
+						gui_event_ctx = Ctrl::EventLoopBegin(NULL);
+						gui_event_ctx_active = true;
+					}
+
+					// Process one iteration
+					Ctrl::EventLoopIteration(gui_event_ctx);
+				}
+			}
+			#endif
+			#if defined flagGUBO
+			if (surfs) {
+				int scope_count = surfs->GetScopeCount();
+				ASSERT(scope_count);
+				if (screen_id >= 0 && screen_id < scope_count) {
+					ASSERT(scope_count == 1);
+					Surface::EventLoopIteration(NULL);
+				}
+			}
+			#endif
+			
+			
+			#if 0
+			Absolute2DInterface* abs2d_iface = CastPtr<Absolute2DInterface>(b.abs_iface);
+			
+			if (abs2d_iface) {
+				Size& sz = b.sz;
+				//Handle::Geom2DComponentLinkRef cw_link = b.win_entity->Find<Handle::Geom2DComponentLink>();
+				//Handle::Geom2DComponent& cw = cw_link->GetWindow();
+				
+				TODO // Move Geom2DComponent content to ParallelLib
+				#if 0
+				Ctrl* ctrl = abs2d_iface->GetCtrl();
+				ASSERT(ctrl);
+				
+				Rect cw_rect = cw.GetStoredRect();
+				sz = cw_rect.GetSize();
+				
+				// Geom2DComponent might not have calculated frame yet
+				if (sz.IsEmpty()) {
+					TopWindow* tw = ctrl->GetTopWindow();
+					if (!tw)
+						continue;
+					sz = tw->GetSize();
+					ASSERT(!sz.IsEmpty());
+					// Add room for frame (which TopWindow itself doesn't know
+					sz.cx += 30;
+					sz.cy += 30;
+				}
+				
+				DrawCommand *begin, *end;
+				if (!b.iface->RenderProg(begin, end)) {
+					ASSERT(0);
+					continue;
+				}
+				
+				#if 
+				DrawCommand* it = begin;
+				int i = 0;
+				bool has_cmd = false;
+				while (it) {
+					LOG(i++ << ": " << it->ToString());
+					if (!has_cmd && it->type != 0)
+						has_cmd = true;
+					it = it->next;
+				}
+				ASSERT(has_cmd);
+				#endif
+				
+				DrawCommandImageRenderer::FindBegin(begin);
+		
+				dbg_win_id = 0;
+				while (begin) {
+					begin = ProcessWindow(b, begin);
+					dbg_win_id++;
+				}
+				
+				if (dbg_info)
+					Panic("stop flood");
+				
+				#endif
+			}
+			#endif
+		}
+	}
+}
+
+bool HandleVideoBase::Send(RealtimeSourceConfig& cfg, PacketValue& out, int src_ch) {
+	ValueFormat fmt = out.GetFormat();
+	if (fmt.IsProg()) {
+		if (IsScreenMode()) {
+			#if defined flagGUI && defined flagSUBWINDOWS
+			if (wins && screen_id >= 0 && screen_id < wins->GetScreenCount()) {
+				WindowManager& w = wins->GetScope(screen_id);
+				ProgDraw& pd = w.GetDraw();
+				ProgPainter& pp = pd.GetPainter();
+				InternalPacketData& data = out.SetData<InternalPacketData>();
+
+				pd.Realize(this, w.GetSize());
+
+				#ifdef flagVIRTUALGUI
+				UPP::AtomVirtualGui* vgui = CastPtr<AtomVirtualGui>(VirtualGuiPtr);
+				ASSERT(VirtualGuiPtr && vgui);
+				vgui->SetTarget(pd);
+				#else
+				TODO
+				#endif
+
+				// Initialize context on first use
+				if (!gui_event_ctx_active) {
+					gui_event_ctx = Ctrl::EventLoopBegin(NULL);
+					gui_event_ctx_active = true;
+				}
+				Ctrl::EventLoopIteration(gui_event_ctx);
+
+				// h4x - PaintAll removed, handled by EventLoopIteration
+
+				data.ptr = pp.GetCurrentBegin();
+				ASSERT(data.ptr);
+
+				#if 0
+				{
+					DrawCommand* begin = pp.GetCurrentBegin();
+					DrawCommand* it = begin;
+					int i = 0;
+					while (it) {
+						LOG(i++ << " " << it->ToString());
+						it = it->next;
+					}
+				}
+				ASSERT(0);
+				#endif
+			}
+			#endif
+			#if defined flagGUBO
+			if (surfs && screen_id >= 0 && screen_id < surfs->GetScreenCount()) {
+				Gu::SurfaceManager& w = surfs->GetScope(screen_id);
+				auto& pd = w.GetDraw();
+				ProgPainter& pp = pd.GetPainter();
+				InternalPacketData& data = out.SetData<InternalPacketData>();
+				
+				#if 1
+				data.ptr = pp.GetBegin();
+				#else
+				pd.Realize(w.GetSize());
+				
+				AtomVirtualGui3D* vgui = CastPtr<AtomVirtualGui3D>(VirtualGui3DPtr);
+				ASSERT(VirtualGui3DPtr && vgui);
+				vgui->SetTarget(pd);
+				
+				//Surface::EventLoopIteration(NULL);
+				
+				// h4x
+				if (!pp.GetCurrentBegin()) {
+					Surface::PaintAll(true);
+				}
+				
+				data.ptr = pp.GetCurrentBegin();
+				ASSERT(data.ptr);
+				
+				#if 0
+				{
+					DrawCommand* begin = pp.GetCurrentBegin();
+					DrawCommand* it = begin;
+					int i = 0;
+					while (it) {
+						LOG(i++ << " " << it->ToString());
+						it = it->next;
+					}
+				}
+				ASSERT(0);
+				#endif
+				#endif
+			}
+			else {
+				ASSERT_(0, "no screen");
+				return false;
+			}
+			#else
+			#endif
+		}
+		else {
+			if (GetPimpl().binders.GetCount() == 1) {
+				Binder& b = GetPimpl().binders.Top();
+				
+				DrawCommand *begin = 0, *end = 0;
+				b.iface->RenderProg(begin, end);
+				
+				InternalPacketData& data = out.SetData<InternalPacketData>();
+				data.ptr = begin;
+			}
+			else if (GetPimpl().binders.GetCount() > 1) {
+				TODO // join multiple draw command vectors from binders to one
+			}
+			else {
+				ASSERT_(0, "no binders");
+				return false;
+			}
+		}
+	}
+	else if (fmt.IsReceipt()){
+		// pass
+	}
+	else {
+		TODO
+	}
+	
+	return true;
+}
+
+void HandleVideoBase::AddBinders() {
+	ASSERT(GetPimpl().binders.IsEmpty());
+	#if 0
+	for (Binder& b : GetPimpl().binders)
+		if (!b.abs_iface)
+			AddBinderActive(b);
+	#endif
+}
+
+void HandleVideoBase::AddBinderActive(Binder& b) {
+	TODO
+	#if 0
+	Handle::DefaultGuiAppComponent* gui = CastPtr<Handle::DefaultGuiAppComponent>(b.iface);
+	if (gui) {
+		Handle::Geom2DComponentPtr cw = gui->GetEntity()->val.Find<Handle::Geom2DComponent>();
+		if (cw)
+			AddWindow3D(b, *cw);
+	}
+	#endif
+}
+
+void HandleVideoBase::AddBinder(BinderIfaceVideo* iface) {
+	Binder& b = GetPimpl().binders.Add();
+	b.iface = iface;
+	
+	if (active)
+		active->AddBinderActive(b);
+}
+
+void HandleVideoBase::RemoveBinder(BinderIfaceVideo* iface) {
+	int pos = -1, i = 0;
+	for (Binder& b : GetPimpl().binders) {
+		if (b.iface == iface) {
+			pos = i;
+			break;
+		}
+		i++;
+	}
+	ASSERT(pos >= 0);
+	if (pos < 0) return;
+	
+	Binder& b = GetPimpl().binders[pos];
+	
+	TODO
+	#if 0
+	if (active) {
+		Handle::DefaultGuiAppComponent* gui = CastPtr<Handle::DefaultGuiAppComponent>(iface);
+		if (gui) {
+			Handle::Geom2DComponentPtr cw = gui->GetEntity()->val.Find<Handle::Geom2DComponent>();
+			if (cw)
+				active->RemoveWindow3D(b, *cw);
+		}
+	}
+	#endif
+}
+
+#if 0
+void HandleVideoBase::AddWindow3D(Binder& b, Handle::Geom2DComponent& cw) {
+	ASSERT(!b.win_entity);
+
+	Handle::EntityStorePtr entity_store = ents->GetEngine().TryGet<Handle::EntityStore>();
+	if (!entity_store) {
+		LOG("CreateWinEntity: Handle::EntityStore not available yet");
+		return;
+	}
+	Handle::PoolRef pool = entity_store->GetRoot();
+	b.win_entity = &*pool->Create<Handle::Window3D>();
+	
+	Handle::Geom2DComponentLinkRef linked_win = b.win_entity->Get<Handle::Geom2DComponentLink>();
+	linked_win->Link(&cw);
+}
+
+void HandleVideoBase::RemoveWindow3D(Binder& b, Handle::Geom2DComponent& cw) {
+	if (b.win_entity) {
+		Handle::Geom2DComponentLinkRef linked_win = b.win_entity->Find<Handle::Geom2DComponentLink>();
+		if (linked_win) {
+			linked_win->Unlink(&cw);
+			b.win_entity->Destroy();
+		}
+	}
+}
+#endif
+
+DrawCommand* HandleVideoBase::ProcessWindow(Binder& b, DrawCommand* begin) {
+	if (!DrawCommandImageRenderer::TrimBegin(begin))
+		return 0;
+	
+	DrawCommand* end = DrawCommandImageRenderer::FindEnd(begin);
+	
+	if (dbg_info) {
+		int i = 0;
+		DrawCommand* it = begin;
+		LOG("Window " << dbg_win_id);
+		while (it != end && it) {
+			LOG("\t" << i++ << ": " << it->ToString());
+			it = it->next;
+		}
+	}
+	
+	ProcessWindowCommands(b, begin, end);
+	
+	// Move to the beginning of the next window
+	return DrawCommandImageRenderer::MoveEnd(end->next);
+}
+
+void HandleVideoBase::ProcessWindowCommands(Binder& b, DrawCommand* begin, DrawCommand* end) {
+	TODO
+	#if 0
+	ASSERT(begin->type == DRAW_BIND_WINDOW);
+	
+	hash_t hash = begin->hash;
+	ASSERT(hash);
+	
+	if (0) {
+		DrawCommand* it = begin;
+		int i = 0;
+		while (it != end) {
+			LOG(i++ << ": " << it->ToString());
+			it = it->next;
+		}
+	}
+	
+	b.rend.ProcessWindowCommands(begin, end);
+	
+	TODO
+	#if 0
+	if (!b.win_inited) {
+		Handle::ModelComponentPtr mdl = b.win_entity->Find<Handle::ModelComponent>();
+		ASSERT(mdl);
+		if (!mdl) return;
+		
+		//ModelLoader& mdl_loader = mdl->GetLoader();
+		//Model& src_mdl = mdl_loader.Realize();
+		
+		vec2 sz_vec(b.sz.cx * b.resize_multiplier, b.sz.cy * b.resize_multiplier);
+		
+		
+		Mesh& plane_mesh = b.mb.AddPlane(vec3(0), sz_vec, 16);
+		Model& src_mdl = b.mb;
+		
+		plane_mesh.CenterAnchor();
+		plane_mesh.TransformVertices(AxesMat(0,M_PI/2,0));
+		
+		Image img = b.rend.GetImage();
+		src_mdl.SetTexture(plane_mesh, TEXTYPE_DIFFUSE, img, "" );
+		
+		#if 0
+		if (!mdl_state.LoadModel(src_mdl)) {
+			LOG("FboProgAtomT<Gfx>::Send: error: could not load model");
+			return;
+		}
+		
+		auto& mtl = src_mdl.materials.Get(plane_mesh.material);
+		
+		win.tex_id = mtl.tex_id[TEXTYPE_DIFFUSE];
+		win.tex = mdl_state.textures.Get(win.tex_id);
+		#endif
+		
+		mdl->Attach(b.mb.Detach());
+		mdl->SetModelChanged();
+		b.win_inited = true;
+	}
+	else {
+		// TODO window resize etc.
+		
+		// call Model::SetModelChanged()
+		
+	}
+	#endif
+	#endif
+}
+
+#endif
+
+
+
+#if 0
+Callback1<HandleOglBase*> HandleOglBase::WhenInitialize;
+
+
+HandleOglBase::HandleOglBase() {
+	
+}
+
+bool HandleOglBase::Initialize(const WorldState& ws) {
+	
+	if (!WhenInitialize) {
+		LOG("HandleOglBase::Initialize: internal error: expected ecs system to prepare this");
+		return false;
+	}
+	
+	WhenInitialize(this);
+	
+	return true;
+}
+
+bool HandleOglBase::PostInitialize() {
+	return true;
+}
+
+void HandleOglBase::Uninitialize() {
+	
+}
+
+bool HandleOglBase::IsReady(PacketIO& io) {
+	dword iface_sink_mask = iface.GetSinkMask();
+	bool b =
+		io.active_sink_mask == iface_sink_mask &&
+		io.full_src_mask == 0;
+	RTLOG("HandleOglBase::IsReady: " << (b ? "true" : "false") << " (" << io.nonempty_sinks << ", " << io.sink.GetCount() << ", " << HexStr(iface_sink_mask) << ", " << HexStr(io.active_sink_mask) << ")");
+	return b;
+}
+
+bool HandleOglBase::Recv(int sink_ch, const Packet& in) {
+	TODO
+}
+
+bool HandleOglBase::end(RealtimeSourceConfig& cfg, PacketValue& out, int src_ch) {
+	TODO
+}
+
+void HandleOglBase::AddBinder(BinderIfaceOgl* iface) {
+	VectorFindAdd(binders, iface);
+}
+
+void HandleOglBase::RemoveBinder(BinderIfaceOgl* iface) {
+	VectorRemoveKey(binders, iface);
+}
+#endif
+
+
+
+#if defined flagSCREEN
+HandleVideoBase::HandleVideoBasePimpl& HandleVideoBase::GetPimpl() {
+	static HandleVideoBasePimpl p;
+	return p;
+}
+
+HandleVideoBase* HandleVideoBase::active;
+#endif
+
+
+END_UPP_NAMESPACE

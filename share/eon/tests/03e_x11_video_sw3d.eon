@@ -1,0 +1,22 @@
+machine x11.app:
+	driver context:
+		x11.sw.context
+
+	chain program:
+		state event.register
+
+		loop video:
+			center.customer
+			x11.sw.fbo.pipe:
+				shader.vtx.name = "pass"
+				shader.frag.name = "color_test"
+
+			x11.sw.fbo.sink:
+				close_machine = true
+				sizeable = true
+				env = "/event/register"
+				recv.data = false
+				shader.vtx.name = "pass"
+				shader.frag.name = "proxy_input0"
+				avg_color_log = true
+				avg_color_interval = 16

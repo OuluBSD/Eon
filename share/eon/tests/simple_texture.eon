@@ -1,0 +1,18 @@
+machine sdl.app:
+	
+	driver context:
+		sdl.context
+	
+	chain program:
+		
+		loop image:
+			center.customer
+			center.image.loader[][loop == "texture"]: vflip = true, filepath = "bg5.png"
+		
+		loop texture:
+			ogl.customer
+			sdl.ogl.fbo.image[loop == "image"][loop == "screen"]
+		
+		loop screen:
+			ogl.customer
+			sdl.fbo[loop == "texture"]: filepath = "shaders/toys/simple/simple_texture/stage0.glsl"

@@ -1,0 +1,9 @@
+description "Visual Node Studio Unified Package\377";
+
+uses
+	Node/Core,
+	Node/Ctrl,
+	Node/Script;
+
+file
+	Node.h;

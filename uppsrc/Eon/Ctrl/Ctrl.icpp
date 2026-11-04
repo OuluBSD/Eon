@@ -1,0 +1,9 @@
+#include "Ctrl.h"
+
+NAMESPACE_UPP
+
+INITBLOCK {
+	REGISTER_EON_SYSTEM(DesktopSuiteSystem, "desktop.system", "Ecs|OS");
+}
+
+END_UPP_NAMESPACE

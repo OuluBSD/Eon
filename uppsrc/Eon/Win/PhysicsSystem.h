@@ -1,0 +1,21 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright (C) Microsoft Corporation.  All Rights Reserved
+// Licensed under the MIT License. See License.txt in the project root for license information.
+#pragma once
+
+namespace DemoRoom
+{
+	////////////////////////////////////////////////////////////////////////////////
+	// PhysicsSystem
+	// Simple physics system to move objects around with basic integration (acceleration, velocity)
+	class PhysicsSystem : public System
+	{
+	public:
+		SYS_CTOR(PhysicsSystem)
+
+		static const winrt::Windows::Foundation::Numerics::float3 EarthGravity;
+
+	protected:
+		void Update(double dt) override;
+	};
+}

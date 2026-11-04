@@ -1,0 +1,35 @@
+#ifndef _Vfs_Ecs_Ecs_h_
+#define _Vfs_Ecs_Ecs_h_
+
+#include <Core/Core.h>
+#include <Core/Ext/Ext.h>
+#include <Vfs/Core/Core.h>
+#include <Core/EcsFoundation/EcsFoundation.h>
+#include <Core/EcsDataflow/EcsDataflow.h>
+
+#if __has_include(<Geometry/Geometry.h>)
+#include <Geometry/Geometry.h>
+#endif
+
+NAMESPACE_UPP
+#include "Component.h"
+#include "Debugging.h"
+#include "Entity.h"
+#include "Realtime.h"
+#include "SampleBase.h"
+#include "Samples.h"
+#include "Formats.h"
+#include "PacketBuffer.h"
+#include "Exchange.h"
+#include "ValDevScope.h"
+#include "Interface.h"
+#include "Atom.h"
+#include "Engine.h"
+#include "Engine2.h"
+#include "Link.h"
+#include "LinkSystem.h"
+#include "PacketTracker.h"
+
+END_UPP_NAMESPACE
+
+#endif

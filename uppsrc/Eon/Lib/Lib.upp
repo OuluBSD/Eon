@@ -1,0 +1,90 @@
+description "\377B0,0,255";
+
+acceptflags
+	DEBUG_RT,
+	AUDIO,
+	BUILTIN_PORTAUDIO,
+	CAMERA,
+	DX10,
+	DX11,
+	DX12,
+	DX9,
+	FBO,
+	FLUIDLITE,
+	FLUIDSYNTH,
+	GUBO,
+	HACK,
+	HAL,
+	OPENVR,
+	LV2,
+	MEDIA,
+	MIDI,
+	OGL,
+	OPENCV,
+	OPENHMD,
+	PORTAUDIO,
+	SDL2,
+	SOFTHMD,
+	UWP,
+	VIDEO,
+	VOLUMETRIC,
+	VR,
+	X11,
+	FFMPEG;
+
+uses
+        Eon/Draw,
+        Painter;
+
+uses(GUBO) GuboCore;
+uses(GUBO) GuboLib;
+uses(GUI) CtrlLib/Eon;
+
+uses(AUDIO) api/Effect;
+
+uses(MIDI) api/MidiFile;
+
+uses(MIDI) api/MidiHw;
+
+uses(AUDIO) api/Synth;
+
+uses(AUDIO) api/Audio;
+
+uses(VR) api/Holograph;
+
+uses(OPENVR) api/Holograph;
+
+uses(!EMSCRIPTEN VR) api/Holograph;
+
+uses(SCREEN) api/Graphics;
+uses(HAL) api/Hal;
+
+file
+	Lib.h,
+	Lib.icpp,
+	GeneratedMinimal.h,
+	GeneratedMinimal.cpp,
+	GeneratedLocal.h,
+	GeneratedLocal.cpp,
+	GeneratedVR.h,
+	GeneratedVR.cpp,
+	Handle.h,
+	Handle.cpp,
+	RenderingSystem.h,
+	RenderingSystem.cpp,
+	2D readonly separator,
+	Absolute2D.h,
+	Absolute2D.cpp,
+	Geom2DComponent.h,
+	Geom2DComponent.cpp,
+	Gui.h,
+	Gui.cpp,
+	NonGui.cpp,
+	Physics readonly separator,
+	EcsPhysics.h,
+	OdePrefab.h,
+	OdePrefab.cpp,
+	TPrefab.h,
+	TPrefab.cpp,
+	_ readonly separator;
+

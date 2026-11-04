@@ -1,0 +1,43 @@
+#ifndef _Eon_Lib_Gui_h_
+#define _Eon_Lib_Gui_h_
+
+#if 0
+#ifdef flagGUI
+
+struct DefaultGuiAppComponent :
+	public Component,
+	public BinderIfaceVideo,
+	public BinderIfaceEvents
+{
+	//RTTI_DECL2(DefaultGuiAppComponent, ComponentT, BinderIfaceVideo)
+	
+	Point prev_mouse;
+	
+	//WindowSystemRef wins;
+	Geom2DComponentPtr cw;
+	TransformPtr trans;
+	Transform2DPtr trans2;
+	
+	
+	DefaultGuiAppComponent(VfsValue& v);
+	void operator=(const DefaultGuiAppComponent& t) {Panic("Can't copy DefaultGuiAppComponent");}
+	
+	bool Initialize(const WorldState&) override;
+	void Uninitialize() override;
+	void Visit(Vis& v) override;
+	void Update(double dt) override;
+	bool Render(Draw& d) override;
+	bool RenderProg(DrawCommand*& begin, DrawCommand*& end) override;
+	virtual void Dispatch(const Upp::CtrlEvent& state) override;
+	bool Arg(const String& key, const String& value) override;
+	
+	void DrawObj(GfxStateDraw& fb, bool use_texture);
+	void StateStartup(GfxDataState& s);
+	
+	
+};
+#endif
+
+
+#endif
+#endif

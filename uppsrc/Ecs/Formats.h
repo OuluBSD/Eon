@@ -1,0 +1,400 @@
+#ifndef _Vfs_Ecs_Formats_h_
+#define _Vfs_Ecs_Formats_h_
+
+#ifndef _Vfs_Ecs_Interface_h_
+struct RouterPortDesc;
+struct RouterConnectionDesc;
+#endif
+
+#define STD_FMT_SIZE (4*16)
+
+struct AudioFormat :
+	SampleBase<SoundSample>,
+	DimBase<1>,
+	TimeSeriesBase
+{
+private:
+	// Summing sizeof() of each base independently (as the other Format structs in
+	// this file do) misses alignment padding the compiler inserts *between* base
+	// subobjects when they're combined -- e.g. the 1-byte SampleBase here needs 3
+	// bytes of padding before the 4-byte-aligned DimBase<1> that follows it. That gap
+	// is invisible to a naive sum, so on MSVC (where it isn't absorbed by trailing
+	// alignment rounding the way it happens to be for the other Format structs) the
+	// pad array below came out 3 bytes short, overflowing sizeof(AudioFormat) to 72
+	// instead of STD_FMT_SIZE's required 64. Bases_ has the exact same base list and
+	// no members of its own, so sizeof(Bases_) is the compiler's own true combined
+	// size, correct on any platform/ABI, no manual arithmetic involved.
+	struct Bases_ : SampleBase<SoundSample>, DimBase<1>, TimeSeriesBase {};
+public:
+	static constexpr int base_size = sizeof(Bases_);
+
+	void Set(SoundSample::Type t, int channels, int freq, int sample_rate);
+
+	int		GetFrameSize() const;
+	String	ToString() const;
+	bool	IsValid() const;
+	bool	IsSame(const AudioFormat& fmt) const;
+
+	byte pad[STD_FMT_SIZE - base_size];
+};
+
+#define TEST_TRIVIAL(x) \
+	static_assert(std::is_trivially_constructible<x>::value == true, #x " must be trivial to construct");
+
+struct VideoFormat :
+	SampleBase<ColorSampleFD>,
+	DimBase<2>,
+	TimeSeriesBase
+{
+	static constexpr int base_size =
+		sizeof(SampleBase<ColorSampleFD>) +
+		sizeof(DimBase<2>) +
+		sizeof(TimeSeriesBase);
+
+	TEST_TRIVIAL(SampleBase<ColorSampleFD>)
+	TEST_TRIVIAL(DimBase<2>)
+	TEST_TRIVIAL(TimeSeriesBase)
+
+	void	Set(ColorSampleFD::Type t, int w, int h, int freq, int sample_rate);
+	void	SetCubemap() {cubemap = true;}
+
+	int		GetFrameSize() const;
+	String	ToString() const;
+	bool	IsValid() const;
+	bool	IsCubemap() const {return cubemap;}
+	bool	IsSame(const VideoFormat& fmt) const;
+	int		GetChannels() const {return SampleBase<ColorSampleFD>::GetPackedCount();}
+
+	bool	cubemap;
+	byte	pad[STD_FMT_SIZE - base_size - 5];
+
+	static int default_width, default_height;
+};
+
+struct VolumeFormat :
+	SampleBase<BinarySample>,
+	DimBase<3>,
+	TimeSeriesBase
+{
+	static constexpr int base_size =
+		sizeof(SampleBase<BinarySample>) +
+		sizeof(DimBase<3>) +
+		sizeof(TimeSeriesBase);
+
+	void	SetDefault() {SampleBase<BinarySample>::SetDefault(); DimBase<3>::SetDefault(); TimeSeriesBase::SetDefault();}
+	void	Set(BinarySample::Type t, int w, int h, int d, int freq, int sample_rate);
+
+	int		GetFrameSize() const;
+	String	ToString() const;
+	bool	IsValid() const;
+	bool	IsSame(const VolumeFormat& fmt) const;
+	int		GetScalar() const {return DimBase<3>::GetVolume();}
+	bool	IsCopyCompatible(const VolumeFormat& b) const;
+	int		GetChannels() const {return SampleBase<BinarySample>::GetPackedCount();}
+
+	byte pad[STD_FMT_SIZE - base_size];
+};
+
+struct FboFormat :
+	SampleBase<BinarySample>,
+	DimBase<3>,
+	TimeSeriesBase
+{
+	static constexpr int base_size =
+		sizeof(SampleBase<ColorSampleFD>) +
+		sizeof(DimBase<3>) +
+		sizeof(TimeSeriesBase);
+
+	void Set(BinarySample::Type t, int w, int h, int d, int freq, int sample_rate);
+
+	int		GetFrameSize() const;
+	String	ToString() const;
+	bool	IsValid() const;
+	bool	IsSame(const FboFormat& fmt) const;
+	int		GetChannels() const {return SampleBase<BinarySample>::GetPackedCount();}
+
+	byte pad[STD_FMT_SIZE - base_size - 4];
+};
+
+typedef FboFormat OglFormat;
+
+struct MidiFormat :
+	SampleBase<MidiSample>,
+	DimBase<1>,
+	SparseTimeSeriesBase
+{
+	static constexpr int base_size =
+		sizeof(SampleBase<MidiSample>) +
+		sizeof(DimBase<1>) +
+		sizeof(SparseTimeSeriesBase);
+
+	void	SetDefault() {SampleBase<MidiSample>::SetDefault(); DimBase<1>::SetDefault();}
+	int		GetFrameSize() const;
+	String	ToString() const;
+	bool	IsValid() const;
+	bool	IsSame(const MidiFormat& fmt) const;
+
+	byte pad[STD_FMT_SIZE - base_size - 4];
+};
+
+struct DataFormat
+{
+	byte pad[STD_FMT_SIZE - 0];
+};
+
+struct EventFormat :
+	SampleBase<EventSample>,
+	DimBase<1>,
+	SparseTimeSeriesBase
+{
+	static constexpr int base_size =
+		sizeof(SampleBase<EventSample>) +
+		sizeof(DimBase<1>) +
+		sizeof(SparseTimeSeriesBase);
+
+	String	ToString() const;
+	bool	IsValid() const;
+	bool	IsSame(const EventFormat& fmt) const;
+	int		GetFrameSize() const;
+
+	byte pad[STD_FMT_SIZE - base_size - 4];
+};
+
+struct ProgFormat :
+	SampleBase<BinarySample>,
+	DimBase<1>,
+	SparseTimeSeriesBase
+{
+	static constexpr int base_size =
+		sizeof(SampleBase<BinarySample>) +
+		sizeof(DimBase<1>) +
+		sizeof(SparseTimeSeriesBase);
+
+	String	ToString() const;
+	bool	IsValid() const;
+	bool	IsSame(const ProgFormat& fmt) const;
+	int		GetFrameSize() const;
+
+	byte pad[STD_FMT_SIZE - base_size - 4];
+};
+
+struct GuiFormat :
+	SampleBase<GuiSample>,
+	DimBase<0>,
+	SparseTimeSeriesBase
+{
+	static const int text_block_size = 512;
+	static constexpr int base_size =
+		sizeof(SampleBase<GuiSample>) +
+		sizeof(DimBase<0>) +
+		sizeof(SparseTimeSeriesBase);
+
+	String	ToString() const;
+	bool	IsValid() const;
+	bool	IsSame(const GuiFormat& fmt) const;
+	int		GetFrameSize() const;
+
+	byte pad[STD_FMT_SIZE - base_size - 4];
+};
+
+struct NeuralFormat {
+	enum Kind : byte {
+		UNKNOWN = 0,
+		LAYER_STACK,
+		MODEL,
+		TENSOR,
+		METRICS,
+		SCRIPT,
+		HYPERPARAMETERS,
+		DATASET,
+		REPORT,
+		KIND_COUNT
+	};
+	static constexpr int shape_dims = 6;
+	static constexpr int base_size =
+		sizeof(byte) * 4 +
+		sizeof(int) * (3 + shape_dims);
+
+	byte kind;
+	byte precision;
+	byte flags;
+	byte reserved;
+	int  rank;
+	int  shape[shape_dims];
+	int  aux;
+	int  aux2;
+
+	void   SetDefault();
+	void   Set(Kind k, int rank = 0);
+	String ToString() const;
+	bool   IsValid() const;
+	bool   IsSame(const NeuralFormat& fmt) const;
+	bool   IsCopyCompatible(const NeuralFormat& fmt) const;
+	int    GetSampleSize() const;
+	int    GetScalar() const;
+	int    GetFrameSize() const;
+	double GetFrameSeconds() const;
+
+	byte pad[STD_FMT_SIZE - base_size];
+};
+
+struct ElectricFormat {
+	enum Kind : byte {
+		UNKNOWN = 0,
+		WIRE,          // generic conductor / net connection
+		POWER,         // power rail (voltage level in aux as millivolts)
+		SIGNAL,        // digital logic signal
+		CONTROL,       // enable / control line
+		ANALOG,        // analog voltage / current
+		BUS,           // multi-bit parallel bus (width in aux)
+		CLOCK,         // periodic clock signal (frequency in aux as Hz)
+		KIND_COUNT
+	};
+	static constexpr int base_size =
+		sizeof(byte) * 4 +
+		sizeof(int)  * 4;
+
+	byte kind;
+	byte precision;   // bits per sample (0 = unspecified)
+	byte flags;
+	byte reserved;
+	int  aux;         // kind-specific: voltage (mV), frequency (Hz), bus width…
+	int  aux2;        // reserved for future use
+	int  aux3;
+	int  aux4;
+
+	void   SetDefault();
+	void   Set(Kind k, int aux_val = 0);
+	String ToString() const;
+	bool   IsValid() const;
+	bool   IsSame(const ElectricFormat& fmt) const;
+	bool   IsCopyCompatible(const ElectricFormat& fmt) const;
+	int    GetSampleSize() const;
+	int    GetScalar() const;
+	int    GetFrameSize() const;
+	double GetFrameSeconds() const;
+
+	byte pad[STD_FMT_SIZE - base_size];
+};
+
+#define TEST_FORMAT(x) \
+	static_assert(std::is_trivially_constructible<x>::value == true, #x " must be trivial to construct"); \
+	static_assert(sizeof(x) == STD_FMT_SIZE, "Expecting standard format size in " #x);
+
+TEST_FORMAT(AudioFormat)
+TEST_FORMAT(VideoFormat)
+TEST_FORMAT(DataFormat)
+TEST_FORMAT(EventFormat)
+TEST_FORMAT(NeuralFormat)
+TEST_FORMAT(ElectricFormat)
+
+class ValueFormat {
+public:
+	ValDevCls			vd;
+	union {
+		byte				data[STD_FMT_SIZE];
+		AudioFormat			aud;
+		VideoFormat			vid;
+		VolumeFormat		vol;
+		MidiFormat			mid;
+		DataFormat			dat;
+		EventFormat			ev;
+		FboFormat			fbo;
+		ProgFormat			prog;
+		GuiFormat			gui;
+		NeuralFormat		neural;
+		ElectricFormat		electric;
+	};
+
+public:
+	ValueFormat() {
+		vd.Clear();
+		memset(data, 0, sizeof(data));
+	}
+	ValueFormat(const ValueFormat& f) : vd(f.vd) {memcpy(data, f.data, sizeof(data));}
+
+	String	ToString() const;
+	DevCls	GetDevSpec() const {return vd.dev;}
+	int		GetSampleSize() const;
+	int		GetScalar() const;
+	int		GetFrameSize() const;
+	double	GetFrameSeconds() const;
+
+	bool IsOrder() const {return vd.val == ValCls::ORDER;}
+	bool IsReceipt() const {return vd.val == ValCls::RECEIPT;}
+	bool IsAudio() const {return vd.val == ValCls::AUDIO;}
+	bool IsVideo() const {return vd.val == ValCls::VIDEO;}
+	bool IsVolume() const {return vd.val == ValCls::VOLUME;}
+	bool IsMidi()  const {return vd.val == ValCls::MIDI;}
+	bool IsEvent() const {return vd.val == ValCls::EVENT;}
+	bool IsFbo()   const {return vd.val == ValCls::FBO;}
+	bool IsProg()  const {return vd.val == ValCls::PROG;}
+	bool IsGui()   const {return vd.val == ValCls::GUI;}
+	bool IsNeural() const {return vd.val == ValCls::NEURAL;}
+	bool IsElectric() const {return vd.val == ValCls::ELECTRIC;}
+	bool IsOgl()   const {return vd.dev == DevCls::OGL;}
+	bool IsValid() const;
+	bool IsSame(const ValueFormat& f) const;
+	bool IsCopyCompatible(const ValueFormat& f) const;
+	bool operator ==(const ValueFormat& f);
+	bool operator !=(const ValueFormat& f);
+	void operator=(const ValueFormat& f);
+	void SetDefault(ValDevCls t);
+	void Clear();
+	bool HasData() const;
+
+	void SetAudio(DevCls dev, SoundSample::Type t, int channels, int freq, int sample_rate);
+	void SetOrder(DevCls dev);
+	void SetReceipt(DevCls dev);
+	void SetMidi(DevCls dev);
+	void SetVolume(DevCls dev, BinarySample::Type t, int w, int h, int d, int freq, int sample_rate);
+	void SetVideo(DevCls dev, ColorSampleFD::Type t, int w, int h, int freq, int sample_rate);
+	void SetVideo(DevCls dev, const VideoFormat& vid);
+	void SetFbo(DevCls dev, BinarySample::Type t, int w, int h, int d, int freq, int sample_rate);
+	void SetEvent(DevCls dev);
+	void SetProg(DevCls dev);
+	void SetGui(DevCls dev);
+	void SetNeural(DevCls dev, NeuralFormat::Kind kind = NeuralFormat::UNKNOWN, int rank = 0);
+	void SetElectric(DevCls dev, ElectricFormat::Kind kind = ElectricFormat::UNKNOWN, int aux_val = 0);
+
+	operator const AudioFormat&() const {ASSERT(IsAudio()); return aud;}
+	operator       AudioFormat&()       {ASSERT(IsAudio()); return aud;}
+	operator const VideoFormat&() const {ASSERT(IsVideo()); return vid;}
+	operator       VideoFormat&()       {ASSERT(IsVideo()); return vid;}
+	operator const VolumeFormat&() const {ASSERT(IsVolume()); return vol;}
+	operator       VolumeFormat&()       {ASSERT(IsVolume()); return vol;}
+	operator const MidiFormat&()  const {ASSERT(IsMidi());  return mid;}
+	operator       MidiFormat&()        {ASSERT(IsMidi());  return mid;}
+	operator const EventFormat&() const {ASSERT(IsEvent()); return ev;}
+	operator       EventFormat&()       {ASSERT(IsEvent()); return ev;}
+	operator const FboFormat&() const   {ASSERT(IsFbo()); return fbo;}
+	operator       FboFormat&()         {ASSERT(IsFbo()); return fbo;}
+	operator const ProgFormat&() const  {ASSERT(IsProg()); return prog;}
+	operator       ProgFormat&()        {ASSERT(IsProg()); return prog;}
+	operator const NeuralFormat&() const {ASSERT(IsNeural()); return neural;}
+	operator       NeuralFormat&()       {ASSERT(IsNeural()); return neural;}
+	operator const ElectricFormat&() const {ASSERT(IsElectric()); return electric;}
+	operator       ElectricFormat&()       {ASSERT(IsElectric()); return electric;}
+};
+
+GVar::Sample GetGVarSampleFromBinarySample(BinarySample::Type t);
+ValueFormat GetDefaultFormat(ValDevCls type);
+
+// Router descriptor serialization helpers
+inline Value RouterLookupValue(const ValueMap& map, const char* key) {
+	int idx = map.Find(Value(String(key)));
+	if (idx >= 0)
+		return map.GetValue(idx);
+	return Value();
+}
+
+ValueMap StoreValDevTuple(const ValDevTuple& tuple);
+bool LoadValDevTuple(const Value& value, ValDevTuple& out);
+
+ValueMap StoreRouterPortDesc(const RouterPortDesc& desc);
+bool LoadRouterPortDesc(const Value& value, RouterPortDesc& out);
+
+ValueMap StoreRouterConnectionDesc(const RouterConnectionDesc& desc);
+bool LoadRouterConnectionDesc(const Value& value, RouterConnectionDesc& out);
+
+#endif
