@@ -606,9 +606,11 @@ static void LoadEonRecursive(const AstNode& node, String prefix, Graph& g,
 // Public API
 // ---------------------------------------------------------------------------
 
-bool LoadEon(Graph& g, const String& eon_text,
+bool LoadEon(Graph& g, const String& eon_text_raw,
              Vector<ValidationMessage>& out)
 {
+	String eon_text = eon_text_raw;
+	eon_text.Replace("\r", "");
 	InitEonCompiler();
 	Vector<GroupDef>    group_defs = ParseGroupAnnotations(eon_text);
 	Vector<PosAnnotation> pos_defs = ParsePosAnnotations(eon_text);
