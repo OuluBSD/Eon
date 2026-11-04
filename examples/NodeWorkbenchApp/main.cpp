@@ -1,6 +1,12 @@
 #include <NodeWorkbench/NodeWorkbench.h>
 #include <Node/Script/Script.h>
 
+namespace Upp {
+#ifdef UPP_HEAP
+extern bool NoMemoryLeaksCheck;
+#endif
+}
+
 using namespace Upp;
 
 // --dump-graph <path>  — headless: open a graph file, print stats, exit 0 on success
@@ -88,10 +94,16 @@ GUI_APP_MAIN {
 	const Vector<String>& args = CommandLine();
 	for (int i = 0; i < args.GetCount(); i++) {
 		if (args[i] == "--test") {
+#ifdef UPP_HEAP
+			NoMemoryLeaksCheck = true;
+#endif
 			SetExitCode(RunSelfTest());
 			return;
 		}
 		if (args[i] == "--dump-graph" && i + 1 < args.GetCount()) {
+#ifdef UPP_HEAP
+			NoMemoryLeaksCheck = true;
+#endif
 			SetExitCode(DumpGraph(args[i + 1]));
 			return;
 		}
