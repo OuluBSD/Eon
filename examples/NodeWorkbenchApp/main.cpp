@@ -1,6 +1,10 @@
 #include <NodeWorkbench/NodeWorkbench.h>
 #include <Node/Script/Script.h>
 
+#ifdef ERROR
+#undef ERROR
+#endif
+
 namespace Upp {
 #ifdef UPP_HEAP
 extern bool NoMemoryLeaksCheck;

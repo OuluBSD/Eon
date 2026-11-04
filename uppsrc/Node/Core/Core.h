@@ -186,6 +186,10 @@ struct Style : Moveable<Style> {
 
 // --- Model Services ---
 
+#ifdef ERROR
+#undef ERROR
+#endif
+
 struct ValidationMessage : Moveable<ValidationMessage> {
 	enum Severity { INFO, WARNING, ERROR };
 	Severity severity;
