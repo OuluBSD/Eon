@@ -946,7 +946,7 @@ bool TestEventSrcBase::Send(RealtimeSourceConfig& cfg, PacketValue& out, int src
 	ASSERT(out_fmt.vd.val == ValCls::EVENT);
 	if (out_fmt.vd.val == ValCls::EVENT) {
 		GeomEvent& ev = out.SetData<GeomEvent>();
-#if __has_include(<Geometry/Geometry.h>)
+#if __has_include(<Geometry/Geometry.h>) && defined(flagGEOMETRY)
 		RandomizeEvent(ev);
 		ev.trans = &trans;
 		ev.ctrl = &ctrl;
