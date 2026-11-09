@@ -84,7 +84,7 @@ jobs:
       - name: Install System Dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install libpng lz4 pcre2 xxhash zstd xz bzip2
+          brew install libpng lz4 pcre2 xxhash zstd xz bzip2 assimp
           echo "CPATH=/opt/homebrew/include" >> "$GITHUB_ENV"
           echo "LIBRARY_PATH=/opt/homebrew/lib" >> "$GITHUB_ENV"
 
@@ -148,7 +148,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           cd Eon
-          xvfb-run -a ./bin/CodeGen --test
+          NO_AT_BRIDGE=1 xvfb-run -a ./bin/CodeGen --test
 
       - name: Run CodeGen Automated Self-Test (macOS)
         if: runner.os == 'macOS'
@@ -165,7 +165,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           cd Eon
-          xvfb-run -a ./bin/NodeWorkbenchApp --test
+          NO_AT_BRIDGE=1 xvfb-run -a ./bin/NodeWorkbenchApp --test
 
       - name: Run NodeWorkbenchApp Automated Self-Test (macOS)
         if: runner.os == 'macOS'
