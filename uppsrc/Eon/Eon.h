@@ -2,7 +2,8 @@
 #define _Eon_Eon_h_
 
 #include <type_traits>
-#include <AI/Core/Core.h>
+#include <Core/Core.h>
+#include <Core/Ext/Ext.h>
 #include <Geometry/Geometry.h>
 #include <Esc/Esc.h>
 #include <Vfs/Vfs.h>

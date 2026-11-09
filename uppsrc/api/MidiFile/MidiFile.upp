@@ -1,0 +1,17 @@
+description "Midi File IO\377B0,128,0";
+
+acceptflags
+	MIDI,
+	DEBUG_RT;
+
+uses
+	MidiFile;
+
+file
+	MidiFile.h,
+	Midi.h,
+	Midi.cpp;
+
+mainconfig
+	"" = "";
+

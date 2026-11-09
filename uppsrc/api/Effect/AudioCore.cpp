@@ -1,0 +1,366 @@
+#include "Effect.h"
+
+
+#ifdef flagSOFTAUDIO
+NAMESPACE_UPP
+
+
+struct FxAudioCore::NativeEffect {
+    One<Audio::Effect> effect;
+    int channel_count;
+    int sample_rate;
+    int prim_audio_sink_ch;
+    dword packet_in_mask;
+    Packet last_audio_in;
+    ValueFormat fmt;
+    ArrayMap<int, Packet> last_audio_side_in;
+    Vector<float> buffer;
+    float buffer_time;
+    Vector<float> resample_buffer;
+    Vector<Vector<float>> resample_side_buffers;
+};
+
+namespace {
+
+void ResampleLinearInterleaved(const float* src, int src_frames, float* dst, int dst_frames, int channel_count) {
+	if (dst_frames <= 0 || channel_count <= 0) {
+		return;
+	}
+	if (src_frames <= 0) {
+		int total = dst_frames * channel_count;
+		for (int i = 0; i < total; ++i)
+			dst[i] = 0.f;
+		return;
+	}
+	if (src_frames == dst_frames) {
+		memcpy(dst, src, sizeof(float) * dst_frames * channel_count);
+		return;
+	}
+	if (dst_frames == 1) {
+		for (int ch = 0; ch < channel_count; ++ch)
+			dst[ch] = src[ch];
+		return;
+	}
+	double step = (double)(src_frames - 1) / (double)(dst_frames - 1);
+	double pos = 0.0;
+	for (int i = 0; i < dst_frames; i++) {
+		int idx0 = (int)pos;
+		int idx1 = min(idx0 + 1, src_frames - 1);
+		double frac = pos - idx0;
+		const float* s0 = src + idx0 * channel_count;
+		const float* s1 = src + idx1 * channel_count;
+		float* d = dst + i * channel_count;
+		for (int ch = 0; ch < channel_count; ++ch) {
+			float val0 = s0[ch];
+			float val1 = s1[ch];
+			d[ch] = val0 + (float)((val1 - val0) * frac);
+		}
+		pos += step;
+	}
+}
+
+} // namespace
+
+
+
+
+bool FxAudioCore::Effect_Create(NativeEffect*& dev) {
+	dev = new NativeEffect;
+	return true;
+}
+
+void FxAudioCore::Effect_Destroy(NativeEffect*& dev) {
+	delete dev;
+}
+
+void FxAudioCore::Effect_Visit(NativeEffect& dev, AtomBase&, Visitor& vis) {
+	
+}
+
+template <class T>
+void CreateSynCoreEffect(FxAudioCore::NativeEffect& dev, AtomBase& a, const WorldState& ws) {
+	T* t = new T();
+	t->LoadState(ws.GetValues());
+	dev.effect = t;
+}
+
+bool FxAudioCore::Effect_Initialize(NativeEffect& dev, AtomBase& a, const WorldState& ws) {
+	dev.channel_count = min(16, max(0, ws.GetInt(".channels", 2)));
+	
+	String instrument = ToLower(ws.GetString(".filter", "chorus"));
+	
+	if      (instrument == "chorus")			CreateSynCoreEffect<Audio::Chorus>(dev, a, ws);
+	else if (instrument == "jcrev")				CreateSynCoreEffect<Audio::JCRev>(dev, a, ws);
+	else if (instrument == "pitchshift")		CreateSynCoreEffect<Audio::PitchShift>(dev, a, ws);
+	else if (instrument == "prcrev")			CreateSynCoreEffect<Audio::PRCRev>(dev, a, ws);
+	else if (instrument == "echo")				CreateSynCoreEffect<Audio::Echo>(dev, a, ws);
+	else if (instrument == "freeverb")			CreateSynCoreEffect<Audio::FreeVerb>(dev, a, ws);
+	else if (instrument == "nrev")				CreateSynCoreEffect<Audio::NRev>(dev, a, ws);
+	else if (instrument == "lentpitchshift")	CreateSynCoreEffect<Audio::LentPitchShift>(dev, a, ws);
+	else if (instrument == "compressor")		CreateSynCoreEffect<Audio::Compressor>(dev, a, ws);
+	/*
+	else if (instrument == "delay")			CreateSynCoreEffect<Audio::Delay>(dev, a, ws);
+	else if (instrument == "delaya")		CreateSynCoreEffect<Audio::DelayA>(dev, a, ws);
+	else if (instrument == "delayl")		CreateSynCoreEffect<Audio::DelayL>(dev, a, ws);
+	else if (instrument == "fir")			CreateSynCoreEffect<Audio::Fir>(dev, a, ws);
+	else if (instrument == "flute")			CreateSynCoreEffect<Audio::Flute>(dev, a, ws);
+	else if (instrument == "formswep")		CreateSynCoreEffect<Audio::FormSwep>(dev, a, ws);
+	else if (instrument == "iir")			CreateSynCoreEffect<Audio::Iir>(dev, a, ws);
+	else if (instrument == "onepole")		CreateSynCoreEffect<Audio::OnePole>(dev, a, ws);
+	else if (instrument == "onezero")		CreateSynCoreEffect<Audio::OneZero>(dev, a, ws);
+	else if (instrument == "polezero")		CreateSynCoreEffect<Audio::PoleZero>(dev, a, ws);
+	else if (instrument == "tapdelay")		CreateSynCoreEffect<Audio::TapDelay>(dev, a, ws);
+	else if (instrument == "twopole")		CreateSynCoreEffect<Audio::TwoPole>(dev, a, ws);
+	else if (instrument == "twozero")		CreateSynCoreEffect<Audio::TwoZero>(dev, a, ws);
+	*/
+	else {
+		LOG("FxAudioCore::Effect_Initialize: error: unrecognized instrument: " << instrument);
+		return false;
+	}
+	
+	dev.sample_rate = ws.GetInt(".samplerate", 1024);
+	{
+		ISinkPtr sink = a.GetSink();
+		int c = sink->GetSinkCount();
+		
+		dev.prim_audio_sink_ch = -1;
+		float freq = 0;
+		for(int i = 0; i < c; i++) {
+			ValueBase& v = sink->GetValue(i);
+			ValueFormat fmt = v.GetFormat();
+			if (fmt.IsAudio()) {
+				AudioFormat& afmt = fmt;
+				if (dev.prim_audio_sink_ch < 0) {
+					freq = (float)afmt.freq;
+					dev.prim_audio_sink_ch = i;
+				}
+
+				afmt.SetType(BinarySample::FLT_LE);
+				afmt.SetSampleRate(dev.sample_rate);
+				v.SetFormat(fmt);
+				
+				dev.fmt = fmt;
+			}
+		}
+		if (dev.prim_audio_sink_ch < 0)
+			return false;
+		
+		
+		dev.effect->SetSampleRate(freq);
+	}
+	
+	{
+		ISourcePtr src = a.GetSource();
+		int c = src->GetSourceCount();
+		ValueBase& v = src->GetSourceValue(c-1);
+		ValueFormat fmt = v.GetFormat();
+		if (!fmt.IsAudio())
+			return false;
+		
+		AudioFormat& afmt = fmt;
+		afmt.SetType(BinarySample::FLT_LE);
+		afmt.SetSampleRate(dev.sample_rate);
+		dev.effect->SetSampleRate((float)afmt.freq);
+		
+		v.SetFormat(fmt);
+	}
+	
+	return true;
+}
+
+bool FxAudioCore::Effect_PostInitialize(NativeEffect& dev, AtomBase& a) {
+	dev.packet_in_mask = 0x1;
+	dev.packet_in_mask |= 1 << dev.prim_audio_sink_ch;
+	LinkBase* lb = a.GetLink();
+	const auto& srcs = lb->SideSources();
+	for(const auto& src : srcs) {
+		int ch = src.local_ch_i;
+		dev.packet_in_mask |= 1 << ch;
+	}
+	return true;
+}
+
+bool FxAudioCore::Effect_Start(NativeEffect& dev, AtomBase& a) {
+	return true;
+}
+
+void FxAudioCore::Effect_Stop(NativeEffect& dev, AtomBase& a) {
+	
+}
+
+void FxAudioCore::Effect_Uninitialize(NativeEffect& dev, AtomBase& a) {
+	
+}
+
+bool FxAudioCore::Effect_Send(NativeEffect& dev, AtomBase& a, RealtimeSourceConfig& cfg, PacketValue& out, int src_ch) {
+	ValueFormat fmt = out.GetFormat();
+	if (fmt.IsAudio()) {
+		if (dev.buffer.GetCount()) {
+			Vector<byte>& d = out.Data();
+			
+			int frame_sz = fmt.GetFrameSize();
+			int bytes = dev.buffer.GetCount() * sizeof(float);
+			ASSERT(bytes == frame_sz);
+			
+			d.SetCount(bytes, 0);
+			float* f = (float*)(byte*)d.Begin();
+			memcpy(f, dev.buffer.Begin(), bytes);
+		}
+		out.SetAge(dev.buffer_time);
+		ASSERT(dev.buffer_time);
+	}
+	if (a.packet_router && !a.router_source_ports.IsEmpty() && fmt.IsValid()) {
+		int credits = a.RequestCredits(src_ch, 1);
+		if (credits <= 0) {
+			RTLOG("FxAudioCore::Effect_Send: credit request denied for src_ch=" << src_ch);
+			return false;
+		}
+
+		Packet route_pkt = CreatePacket(out.GetOffset());
+		route_pkt->Pick(out);
+		route_pkt->SetFormat(fmt);
+		bool routed = a.EmitViaRouter(src_ch, route_pkt);
+		a.AckCredits(src_ch, credits);
+		out.Pick(*route_pkt);
+		if (!routed)
+			return false;
+	}
+	return true;
+}
+
+bool FxAudioCore::Effect_Recv(NativeEffect& dev, AtomBase& a, int sink_ch, const Packet& in) {
+	ValueFormat fmt = in->GetFormat();
+	if (fmt.IsAudio()) {
+		if (sink_ch == dev.prim_audio_sink_ch)
+			dev.last_audio_in = in;
+		else
+			dev.last_audio_side_in.GetAdd(sink_ch) = in;
+	}
+	else if (fmt.IsOrder()) {
+		// pass
+	}
+	else {
+		TODO
+	}
+	return true;
+}
+
+void FxAudioCore::Effect_Finalize(NativeEffect& dev, AtomBase& a, RealtimeSourceConfig& cfg) {
+	if (dev.last_audio_in) {
+		if (dev.last_audio_side_in.IsEmpty()) {
+			ValueFormat fmt = dev.fmt;
+			
+			AudioFormat& afmt = fmt;
+			int sr = afmt.GetSampleRate();
+			int ch = afmt.GetSize();
+			ASSERT(ch == dev.channel_count);
+			ASSERT(afmt.IsSampleFloat());
+			
+			ValueFormat in_fmt = dev.last_audio_in->GetFormat();
+			AudioFormat& in_afmt = in_fmt;
+			int in_sr = in_afmt.GetSampleRate();
+			const Vector<byte>& in = dev.last_audio_in->Data();
+			const float* in_ptr = (const float*)(const byte*)in.Begin();
+			if (in_sr != sr) {
+				dev.resample_buffer.SetCount(sr * ch);
+				ResampleLinearInterleaved(in_ptr, in_sr, dev.resample_buffer.Begin(), sr, ch);
+				in_ptr = dev.resample_buffer.Begin();
+			}
+			
+			int samples = sr * ch;
+			dev.buffer.SetCount(samples, 0);
+			float* f = (float*)dev.buffer.Begin();
+			
+			Audio::Effect& fx = *dev.effect;
+			ch = min(ch, dev.channel_count);
+			
+			for(int i = 0; i < sr; i++) {
+				for(int j = 0; j < ch; j++) {
+					float iv = *in_ptr++;
+					float ov = fx.Tick(iv, j);
+					*f++ = ov;
+				}
+			}
+			
+			dev.buffer_time = (float)dev.last_audio_in->GetBeginTime();
+			ASSERT(dev.buffer_time);
+			dev.last_audio_in.Clear();
+		}
+		else {
+			ValueFormat fmt = dev.fmt;
+			
+			AudioFormat& afmt = fmt;
+			int sr = afmt.GetSampleRate();
+			int ch = afmt.GetSize();
+			ASSERT(ch == dev.channel_count);
+			ASSERT(afmt.IsSampleFloat());
+			
+			ValueFormat in_fmt = dev.last_audio_in->GetFormat();
+			AudioFormat& in_afmt = in_fmt;
+			int in_sr = in_afmt.GetSampleRate();
+			const Vector<byte>& in = dev.last_audio_in->Data();
+			const float* in_ptr = (const float*)(const byte*)in.Begin();
+			if (in_sr != sr) {
+				dev.resample_buffer.SetCount(sr * ch);
+				ResampleLinearInterleaved(in_ptr, in_sr, dev.resample_buffer.Begin(), sr, ch);
+				in_ptr = dev.resample_buffer.Begin();
+			}
+			
+			
+			const float* side_in_f[16];
+			const int side_c = min(16,dev.last_audio_side_in.GetCount());
+			dev.resample_side_buffers.SetCount(side_c);
+			for(int i = 0; i < side_c; i++) {
+				Packet& side_p = dev.last_audio_side_in[i];
+				ValueFormat side_fmt = side_p->GetFormat();
+				AudioFormat& side_afmt = side_fmt;
+				int side_sr = side_afmt.GetSampleRate();
+				ASSERT(side_afmt.GetSize() == ch);
+				const Vector<byte>& side_in = side_p->Data();
+				const float* side_ptr = (const float*)(const byte*)side_in.Begin();
+				if (side_sr != sr) {
+					Vector<float>& buf = dev.resample_side_buffers[i];
+					buf.SetCount(sr * ch);
+					ResampleLinearInterleaved(side_ptr, side_sr, buf.Begin(), sr, ch);
+					side_in_f[i] = buf.Begin();
+				}
+				else {
+					side_in_f[i] = side_ptr;
+				}
+			}
+			
+			dev.buffer.SetCount(afmt.GetSampleRate() * afmt.GetSize(), 0);
+			float* f = (float*)dev.buffer.Begin();
+			
+			Audio::Effect& fx = *dev.effect;
+			ch = min(ch, dev.channel_count);
+			
+			for(int i = 0; i < sr; i++) {
+				for(int j = 0; j < ch; j++) {
+					float iv = *in_ptr++;
+					float siv = 0;
+					for(int k = 0; k < side_c; k++)
+						siv += *side_in_f[k]++;
+					float ov = fx.Tick2(iv, siv, j);
+					*f++ = ov;
+				}
+			}
+			
+			dev.buffer_time = (float)dev.last_audio_in->GetBeginTime();
+			ASSERT(dev.buffer_time);
+			dev.last_audio_in.Clear();
+			dev.last_audio_side_in.Clear();
+		}
+	}
+}
+
+bool FxAudioCore::Effect_IsReady(NativeEffect& dev, AtomBase& a, PacketIO& io) {
+	// Primary sink is required always (continuous audio) so ignore midi input, which is mixed
+	// to primary occasionally.
+	bool b = ((io.active_sink_mask & dev.packet_in_mask) == dev.packet_in_mask) && io.full_src_mask == 0;
+	return b;
+}
+
+
+END_UPP_NAMESPACE
+#endif

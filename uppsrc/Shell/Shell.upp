@@ -1,0 +1,20 @@
+description "Eon Application Shell\377B";
+
+uses
+	Eon/Core,
+	Eon/Ecs,
+	Eon/Compiler,
+	Eon/Script,
+	Eon/Interaction;
+
+file
+	Shell.h,
+	Shell.cpp,
+	Prefabs.h,
+	_ readonly separator,
+	Defs.h,
+	EcsComplete.cpp;
+
+mainconfig
+	"" = "";
+

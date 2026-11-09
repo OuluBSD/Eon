@@ -49,7 +49,7 @@ bool ShadertoyContextLoader::LoadFileToy(String path, Value& dst) {
 	
 	String file_dir = GetFileDirectory(path);
 	bool fail = false;
-	dst = ParseJSON(LoadFile(path), false);
+	dst = ParseJSON(LoadFile(path));
 	if (dst.IsError()) {
 		RLOG("ShadertoyContextLoader::LoadFileToy: error: " + GetErrorText(dst));
 		return false;

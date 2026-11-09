@@ -58,6 +58,12 @@ jobs:
           repository: OuluBSD/VFS
           path: VFS
 
+      - name: Checkout UppGeometry
+        uses: actions/checkout@v4
+        with:
+          repository: OuluBSD/UppGeometry
+          path: UppGeometry
+
       - name: Checkout Upstream U++ (ultimatepp)
         uses: actions/checkout@v4
         with:
@@ -114,17 +120,46 @@ jobs:
       - name: Build EonDemo (${{ matrix.bm }})
         run: |
           cd Eon
-          uppbuilder examples/EonDemo -m ${{ matrix.bm }} --bazaarcore "$GITHUB_WORKSPACE/BazaarCore" --vfs "$GITHUB_WORKSPACE/VFS" -v
+          uppbuilder examples/EonDemo -m ${{ matrix.bm }} --bazaarcore "$GITHUB_WORKSPACE/BazaarCore" --vfs "$GITHUB_WORKSPACE/VFS" --uppgeometry "$GITHUB_WORKSPACE/UppGeometry" -v
 
       - name: Run EonDemo Automated Test (${{ matrix.bm }})
         run: |
           cd Eon
           ./bin/EonDemo --test
 
+      - name: Build & Test EonApiEditor (${{ matrix.bm }})
+        run: |
+          cd Eon
+          uppbuilder uppsrc/EonApiEditor -m ${{ matrix.bm }} --bazaarcore "$GITHUB_WORKSPACE/BazaarCore" --vfs "$GITHUB_WORKSPACE/VFS" --uppgeometry "$GITHUB_WORKSPACE/UppGeometry" -v
+          ./bin/EonApiEditor --test
+
+      - name: Build & Test Shell (${{ matrix.bm }})
+        run: |
+          cd Eon
+          uppbuilder uppsrc/Shell -m ${{ matrix.bm }} --bazaarcore "$GITHUB_WORKSPACE/BazaarCore" --vfs "$GITHUB_WORKSPACE/VFS" --uppgeometry "$GITHUB_WORKSPACE/UppGeometry" -v
+          ./bin/Shell --test
+
+      - name: Build CodeGen (${{ matrix.bm }})
+        run: |
+          cd Eon
+          uppbuilder uppsrc/CodeGen -m ${{ matrix.bm }} --bazaarcore "$GITHUB_WORKSPACE/BazaarCore" --vfs "$GITHUB_WORKSPACE/VFS" --uppgeometry "$GITHUB_WORKSPACE/UppGeometry" -v
+
+      - name: Run CodeGen Automated Self-Test (Linux with Xvfb)
+        if: runner.os == 'Linux'
+        run: |
+          cd Eon
+          xvfb-run -a ./bin/CodeGen --test
+
+      - name: Run CodeGen Automated Self-Test (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          cd Eon
+          ./bin/CodeGen --test
+
       - name: Build NodeWorkbenchApp (${{ matrix.bm }})
         run: |
           cd Eon
-          uppbuilder examples/NodeWorkbenchApp -m ${{ matrix.bm }} --bazaarcore "$GITHUB_WORKSPACE/BazaarCore" --vfs "$GITHUB_WORKSPACE/VFS" -v
+          uppbuilder examples/NodeWorkbenchApp -m ${{ matrix.bm }} --bazaarcore "$GITHUB_WORKSPACE/BazaarCore" --vfs "$GITHUB_WORKSPACE/VFS" --uppgeometry "$GITHUB_WORKSPACE/UppGeometry" -v
 
       - name: Run NodeWorkbenchApp Automated Self-Test (Linux with Xvfb)
         if: runner.os == 'Linux'
@@ -171,6 +206,12 @@ jobs:
         with:
           repository: OuluBSD/VFS
           path: VFS
+
+      - name: Checkout UppGeometry
+        uses: actions/checkout@v4
+        with:
+          repository: OuluBSD/UppGeometry
+          path: UppGeometry
 
       - name: Checkout Upstream U++ (ultimatepp)
         uses: actions/checkout@v4
@@ -241,12 +282,33 @@ jobs:
         shell: cmd
         run: |
           cd Eon
-          uppbuilder.exe examples/EonDemo -m MSVS22x64 --bazaarcore "%GITHUB_WORKSPACE%\BazaarCore" --vfs "%GITHUB_WORKSPACE%\VFS" -v
+          uppbuilder.exe examples/EonDemo -m MSVS22x64 --bazaarcore "%GITHUB_WORKSPACE%\BazaarCore" --vfs "%GITHUB_WORKSPACE%\VFS" --uppgeometry "%GITHUB_WORKSPACE%\UppGeometry" -v
           bin\EonDemo.exe --test
+
+      - name: Build & Run EonApiEditor (MSVC)
+        shell: cmd
+        run: |
+          cd Eon
+          uppbuilder.exe uppsrc/EonApiEditor -m MSVS22x64 --bazaarcore "%GITHUB_WORKSPACE%\BazaarCore" --vfs "%GITHUB_WORKSPACE%\VFS" --uppgeometry "%GITHUB_WORKSPACE%\UppGeometry" -v
+          bin\EonApiEditor.exe --test
+
+      - name: Build & Run Shell (MSVC)
+        shell: cmd
+        run: |
+          cd Eon
+          uppbuilder.exe uppsrc/Shell -m MSVS22x64 --bazaarcore "%GITHUB_WORKSPACE%\BazaarCore" --vfs "%GITHUB_WORKSPACE%\VFS" --uppgeometry "%GITHUB_WORKSPACE%\UppGeometry" -v
+          bin\Shell.exe --test
+
+      - name: Build & Run CodeGen (MSVC)
+        shell: cmd
+        run: |
+          cd Eon
+          uppbuilder.exe uppsrc/CodeGen -m MSVS22x64 --bazaarcore "%GITHUB_WORKSPACE%\BazaarCore" --vfs "%GITHUB_WORKSPACE%\VFS" --uppgeometry "%GITHUB_WORKSPACE%\UppGeometry" -v
+          bin\CodeGen.exe --test
 
       - name: Build & Run NodeWorkbenchApp (MSVC)
         shell: cmd
         run: |
           cd Eon
-          uppbuilder.exe examples/NodeWorkbenchApp -m MSVS22x64 --bazaarcore "%GITHUB_WORKSPACE%\BazaarCore" --vfs "%GITHUB_WORKSPACE%\VFS" -v
+          uppbuilder.exe examples/NodeWorkbenchApp -m MSVS22x64 --bazaarcore "%GITHUB_WORKSPACE%\BazaarCore" --vfs "%GITHUB_WORKSPACE%\VFS" --uppgeometry "%GITHUB_WORKSPACE%\UppGeometry" -v
           bin\NodeWorkbenchApp.exe --test

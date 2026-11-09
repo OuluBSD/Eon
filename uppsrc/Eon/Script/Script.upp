@@ -5,9 +5,9 @@ acceptflags
 
 uses
 	Eon/Core,
+	Eon/Compiler,
 	Vfs,
 	Geometry,
-	AI/Core,
 	Esc,
 	ByteVM;
 

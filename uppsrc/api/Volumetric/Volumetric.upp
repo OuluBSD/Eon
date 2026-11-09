@@ -1,0 +1,14 @@
+description "Volumetric API\377B0,128,0";
+
+acceptflags
+	VOLUMETRIC,
+	DEBUG_RT;
+
+file
+	Volumetric.h,
+	RawByte.cpp,
+	IfaceFuncs.inl highlight cpp;
+
+mainconfig
+	"" = "";
+

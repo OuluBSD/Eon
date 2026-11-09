@@ -1,0 +1,28 @@
+description "Midi Hardware API\377B0,128,0";
+
+acceptflags
+	MIDI,
+	DEBUG_RT;
+
+uses
+	MidiFile,
+	MidiFile;
+
+uses(BUILTIN_PORTMIDI) plugin/portmidi;
+
+uses(BUILTIN_PORTMIDI) plugin/portmidi;
+
+library(PORTMIDI) portmidi;
+
+library(PORTMIDI) portmidi;
+
+library(PORTMIDI) portmidi;
+
+file
+	MidiHw.h,
+	Portmidi.cpp,
+	IfaceFuncs.inl highlight cpp;
+
+mainconfig
+	"" = "";
+

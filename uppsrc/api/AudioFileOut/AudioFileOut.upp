@@ -1,0 +1,14 @@
+description "Audio file out\377B0,128,0";
+
+acceptflags
+	AUDIO,
+	DEBUG_RT;
+
+file
+	AudioFileOut.h,
+	CoreAudio.cpp,
+	IfaceFuncs.inl highlight cpp;
+
+mainconfig
+	"" = "";
+

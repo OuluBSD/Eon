@@ -1,0 +1,57 @@
+description "Audio Synth API\377B0,128,0";
+
+acceptflags
+	MIDI,
+	AUDIO,
+	LV2,
+	VST,
+	FLUIDSYNTH,
+	FLUIDLITE,
+	SOFTINSTRU,
+	SOFTSYNTH,
+	SOFTAUDIO,
+	DEBUG_RT;
+
+uses
+	api/AudioHost,
+	api/AudioHost;
+
+uses(SOFTINSTRU) SoftInstru;
+
+uses(SOFTSYNTH) SoftSynth;
+
+uses(SOFTAUDIO) SoftAudio;
+
+uses(FLUIDLITE) plugin/fluidlite;
+
+uses(LV2) plugin/lilv;
+
+uses(SOFTINSTRU) SoftInstru;
+
+uses(SOFTSYNTH) SoftSynth;
+
+uses(SOFTAUDIO) SoftAudio;
+
+uses(FLUIDLITE) plugin/fluidlite;
+
+uses(LV2) plugin/lilv;
+
+library(FLUIDSYNTH) fluidsynth;
+
+library(FLUIDSYNTH) fluidsynth;
+
+library(FLUIDSYNTH) fluidsynth;
+
+file
+	Synth.h,
+	Soft.cpp,
+	Fluidsynth.cpp,
+	FmSynth.cpp,
+	CoreSynth.cpp,
+	CoreDrummer.cpp,
+	LV2.cpp,
+	IfaceFuncs.inl highlight cpp;
+
+mainconfig
+	"" = "";
+

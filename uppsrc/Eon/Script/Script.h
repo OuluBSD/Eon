@@ -5,6 +5,7 @@
 #include <Vfs/Ecs/Ecs.h>
 #include <Core/EcsEngine/EcsEngine.h>
 #include <Eon/Core/Core.h>
+#include <Eon/Compiler/Compiler.h>
 
 NAMESPACE_UPP
 

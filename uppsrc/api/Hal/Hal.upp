@@ -1,0 +1,42 @@
+description "Hardware Abstraction Layer\377B0,128,0";
+
+acceptflags
+	SCREEN,
+	AUDIO,
+	OGL,
+	HAL,
+	SDL2,
+	DX9,
+	DX10,
+	DX11,
+	DX12,
+	FBO,
+	UPP,
+	VR,
+	UWP,
+	OPENVR,
+	DEBUG_RT;
+
+uses(GUI) Form;
+uses(OGL) GLDraw;
+
+library(SDL2 & (!WIN32 | MSC)) "SDL2 SDL2_ttf SDL2_image";
+
+library(UWP&DX12) "D3D11 DXGI D2d1 Dwrite";
+
+library(SDL2 & WIN32 & !MSC) "SDL2 SDL2_image SDL2_ttf freetype harfbuzz Dwrite SetupAPI jpeg jxl png tiff webp Imm32 Version OleAut32 hwy brotlidec brotlicommon graphite2 Rpcrt4  jbig deflate lzma zstd Lerc sharpyuv z";
+
+library(SDL2 WIN32) Ole32;
+
+library(SDL2 WIN32 (GCC | CLANG)) "OpenGL32 iconv";
+
+file
+	Hal.h,
+	Upp.cpp,
+	Sdl.cpp,
+	Holo.cpp,
+	IfaceFuncs.inl highlight cpp;
+
+mainconfig
+	"" = "";
+

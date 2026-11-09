@@ -1,0 +1,136 @@
+// This file have been generated automatically.
+// DO NOT MODIFY THIS FILE!
+
+#ifndef _IEffect_IEffect_h_
+#define _IEffect_IEffect_h_
+
+#include <Eon/Eon.h>
+#if defined flagSOFTAUDIO
+#include <SoftAudio/SoftAudio.h>
+#endif
+#include <api/AudioHost/AudioHost.h>
+#if defined flagLV2
+#include <plugin/lilv/lilv.h>
+#endif
+
+NAMESPACE_UPP
+
+#define FX_CLS_LIST(x) \
+	FX_CLS(Effect, x) \
+
+#define FX_VNDR_LIST \
+	FX_VNDR(FxAudioCore) \
+	FX_VNDR(FxLV2) \
+
+#define FX_CLS(x, v) struct v##x;
+#define FX_VNDR(x) FX_CLS_LIST(x)
+FX_VNDR_LIST
+#undef FX_VNDR
+#undef FX_CLS
+
+#if defined flagSOFTAUDIO
+struct FxAudioCore {
+	#if defined flagAUDIO
+	struct NativeEffect;
+	#endif
+	
+	struct Thread {
+		
+	};
+	
+	static Thread& Local() {thread_local static Thread t; return t;}
+	
+	#include "IfaceFuncs.inl"
+	
+};
+#endif
+#if defined flagLV2
+struct FxLV2 {
+	#if defined flagAUDIO
+	struct NativeEffect;
+	#endif
+	
+	struct Thread {
+		
+	};
+	
+	static Thread& Local() {thread_local static Thread t; return t;}
+	
+	#include "IfaceFuncs.inl"
+	
+};
+#endif
+
+#if defined flagAUDIO
+struct FxEffect : public Atom {
+	using Atom::Atom;
+	void Visit(Vis& v) override {VIS_THIS(Atom);}
+	
+	virtual ~FxEffect() {}
+};
+#endif
+
+
+#if defined flagAUDIO
+template <class Fx> struct EffectEffectT : FxEffect {
+	using CLASSNAME = EffectEffectT<Fx>;
+	using FxEffect::FxEffect;
+	void Visit(Vis& v) override {
+		if (dev) Fx::Effect_Visit(*dev, *this, v);
+		VIS_THIS(FxEffect);
+	}
+	typename Fx::NativeEffect* dev = 0;
+	bool Initialize(const WorldState& ws) override {
+		if (!Fx::Effect_Create(dev))
+			return false;
+		if (!Fx::Effect_Initialize(*dev, *this, ws))
+			return false;
+		return true;
+	}
+	bool PostInitialize() override {
+		if (!Fx::Effect_PostInitialize(*dev, *this))
+			return false;
+		return true;
+	}
+	bool Start() override {
+		return Fx::Effect_Start(*dev, *this);
+	}
+	void Stop() override {
+		Fx::Effect_Stop(*dev, *this);
+	}
+	void Uninitialize() override {
+		ASSERT(this->GetDependencyCount() == 0);
+		Fx::Effect_Uninitialize(*dev, *this);
+		Fx::Effect_Destroy(dev);
+	}
+	bool Send(RealtimeSourceConfig& cfg, PacketValue& out, int src_ch) override {
+		if (!Fx::Effect_Send(*dev, *this, cfg, out, src_ch))
+			return false;
+		return true;
+	}
+	bool Recv(int sink_ch, const Packet& in) override {
+		return Fx::Effect_Recv(*dev, *this, sink_ch, in);
+	}
+	void Finalize(RealtimeSourceConfig& cfg) override {
+		return Fx::Effect_Finalize(*dev, *this, cfg);
+	}
+	bool IsReady(PacketIO& io) override {
+		return Fx::Effect_IsReady(*dev, *this, io);
+	}
+};
+#endif
+
+#if defined flagSOFTAUDIO
+#if defined flagAUDIO
+using AudioCoreEffect = EffectEffectT<FxAudioCore>;
+#endif
+#endif
+#if defined flagLV2
+#if defined flagAUDIO
+using LV2Effect = EffectEffectT<FxLV2>;
+#endif
+#endif
+
+END_UPP_NAMESPACE
+
+#endif

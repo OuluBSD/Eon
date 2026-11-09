@@ -1,0 +1,41 @@
+description "Holographics API\377B0,128,0";
+
+acceptflags
+	VR,
+	OPENHMD,
+	LOCALHMD,
+	OPENVR,
+	MEDIA,
+	DEBUG_RT;
+
+uses
+	api/Media,
+	api/Media;
+
+uses(LINUX) plugin/hcidump;
+
+uses(SOFTHMD) SoftHMD;
+
+uses(LINUX) plugin/hcidump;
+
+uses(SOFTHMD) SoftHMD;
+
+library(LINUX & OPENHMD) "openhmd hidapi-libusb";
+
+library(LINUX & OPENHMD) "openhmd hidapi-libusb";
+
+library(LINUX & OPENHMD) "openhmd hidapi-libusb";
+
+file
+	Holograph.h,
+	OpenHMD.cpp,
+	SoftHMD.cpp,
+	RemoteVRServer.cpp,
+	DevUsb.cpp,
+	DevBluetooth.cpp,
+	OpenVR.cpp,
+	IfaceFuncs.inl highlight cpp;
+
+mainconfig
+	"" = "";
+

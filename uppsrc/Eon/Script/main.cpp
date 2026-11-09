@@ -1,6 +1,6 @@
 #include "Script.h"
 
-#ifdef flagMAIN
+#if 0 // Stale legacy test runner (uses ancient SingleMachine and Compiler signatures)
 
 NAMESPACE_UPP
 

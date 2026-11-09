@@ -1,0 +1,22 @@
+description "Audio\377B0,128,0";
+
+acceptflags
+	AUDIO,
+	PORTAUDIO,
+	BUILTIN_PORTAUDIO,
+	DEBUG_RT;
+
+uses
+	Eon,
+	Sound;
+
+library(PORTAUDIO) portaudio;
+
+file
+	Audio.h,
+	Portaudio.cpp,
+	IfaceFuncs.inl highlight cpp;
+
+mainconfig
+	"" = "";
+

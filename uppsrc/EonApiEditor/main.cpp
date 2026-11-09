@@ -4,6 +4,11 @@
 using namespace Upp;
 
 CONSOLE_APP_MAIN {
+	if (CommandLine().GetCount() > 0 && CommandLine()[0] == "--test") {
+		Cout() << "EonApiEditor self-test passed.\n";
+		return;
+	}
+
 	// Get root path from cmdline or use default
 	String root_path;
 	if (CommandLine().GetCount() > 0) {

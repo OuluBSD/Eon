@@ -1,0 +1,22 @@
+description "Camera API\377B0,128,0";
+
+acceptflags
+	CAMERA,
+	OPENCV,
+	AUDIO,
+	VIDEO,
+	MEDIA,
+	DEBUG_RT;
+
+uses
+	api/Media,
+	api/Media;
+
+file
+	Camera.h,
+	V4L2OpenCV.cpp,
+	IfaceFuncs.inl highlight cpp;
+
+mainconfig
+	"" = "";
+
