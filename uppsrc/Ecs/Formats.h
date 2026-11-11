@@ -381,12 +381,14 @@ GVar::Sample GetGVarSampleFromBinarySample(BinarySample::Type t);
 ValueFormat GetDefaultFormat(ValDevCls type);
 
 // Router descriptor serialization helpers
+#ifndef _RouterPortDesc_defined_
 inline Value RouterLookupValue(const ValueMap& map, const char* key) {
 	int idx = map.Find(Value(String(key)));
 	if (idx >= 0)
 		return map.GetValue(idx);
 	return Value();
 }
+#endif
 
 ValueMap StoreValDevTuple(const ValDevTuple& tuple);
 bool LoadValDevTuple(const Value& value, ValDevTuple& out);

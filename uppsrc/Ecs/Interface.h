@@ -1,5 +1,6 @@
 #ifndef _Vfs_Ecs_Interface_h_
 #define _Vfs_Ecs_Interface_h_
+#define _RouterPortDesc_defined_
 
 
 class AtomBase;
